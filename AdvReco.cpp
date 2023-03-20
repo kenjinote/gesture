@@ -148,10 +148,10 @@ const TCHAR gc_szAppName[] = TEXT("Advanced Recognition");
 //        non zero: Value of the wParam when receiving the WM_QUIT message
 //
 /////////////////////////////////////////////////////////
-int APIENTRY WinMain(
+int APIENTRY wWinMain(
         HINSTANCE hInstance,
         HINSTANCE /*hPrevInstance*/,   // not used here
-        LPSTR     /*lpCmdLine*/,       // not used here
+        LPWSTR     /*lpCmdLine*/,       // not used here
         int       nCmdShow
         )
 {
@@ -226,13 +226,6 @@ int CAdvRecoApp::Run(
     if (theApp.Create(NULL, CWindow::rcDefault, gc_szAppName,
                       WS_OVERLAPPEDWINDOW, 0, (UINT)hMenu) != NULL)
     {
-        // Initialize the application object:
-        // Use no guides
-        theApp.SendMessage(WM_COMMAND, ID_GUIDE_NONE);
-        // Set input scope to default
-        theApp.SendMessage(WM_COMMAND, ID_INPUTSCOPE_FIRST);
-        // Create a recognition context with the default recognizer
-        theApp.SendMessage(WM_COMMAND, ID_RECOGNIZER_DEFAULT);
         // Set the collection mode to ICM_InkOnly
         theApp.SendMessage(WM_COMMAND, ID_MODE_INK_AND_GESTURES);
 
@@ -302,12 +295,6 @@ LRESULT CAdvRecoApp::OnCreate(
     if (FAILED(hr))
         return -1;
 
-    // Get an empty ink strokes collection from the ink object.
-    // It'll be used as a storage for the ink
-    hr = m_spIInkDisp->get_Strokes(&m_spIInkStrokes);
-    if (FAILED(hr))
-        return -1;
-
     // Establish a connection to the collector's event source.
     // Depending on the selected collection mode, the application will be
     // listening to either Stroke or Gesture events, or both.
@@ -371,10 +358,6 @@ LRESULT CAdvRecoApp::OnDestroy(
         m_spIInkRecoContext.Release();
     }
 
-    // Release the other objects and collections
-    m_spIInkStrokes.Release();
-    m_spIInkRecognizers.Release();
-
     // Post a WM_QUIT message to the application's message queue
     ::PostQuitMessage(0);
 
@@ -431,32 +414,6 @@ LRESULT CAdvRecoApp::OnSize(
 //      S_OK if succeeded, E_FAIL or E_INVALIDARG otherwise
 //
 /////////////////////////////////////////////////////////
-HRESULT CAdvRecoApp::OnStroke(
-        IInkCursor* /*pIInkCursor*/,
-        IInkStrokeDisp* pIInkStroke,
-        VARIANT_BOOL* /* pbCancel */
-        )
-{
-    if (NULL == pIInkStroke)
-        return E_INVALIDARG;
-
-    if (m_spIInkStrokes == NULL)
-        return S_OK;
-
-    // Add the new stroke to the collection
-    HRESULT hr = m_spIInkStrokes->Add(pIInkStroke);
-    if (SUCCEEDED(hr) && m_spIInkRecoContext != NULL)
-    {
-        // Cancel the previous background recognition requests
-        // which have not been processed yet
-        m_spIInkRecoContext->StopBackgroundRecognition();
-
-        // Update the recognition results
-        CComVariant vCustomData;    // no custom data
-        m_spIInkRecoContext->BackgroundRecognizeWithAlternates(vCustomData);
-    }
-    return hr;
-}
 
 /////////////////////////////////////////////////////////
 //
@@ -530,38 +487,7 @@ HRESULT CAdvRecoApp::OnGesture(
     {
         // Get the rectangle to update.
         RECT rc;
-        CComPtr<IInkRectangle> spIInkRect;
-        if (m_spIInkRenderer != NULL
-            && pInkStrokes != NULL
-            && SUCCEEDED(pInkStrokes->GetBoundingBox(IBBM_Default, &spIInkRect))
-            && SUCCEEDED(spIInkRect->GetRectangle(&rc.top, &rc.left,
-                                                  &rc.bottom, &rc.right)))
-        {
-            // Transform the bounding box coordinates from ink space to screen
-            HDC hdc = m_wndInput.GetDC();
-            if (NULL != hdc)
-            {
-                if (FAILED(m_spIInkRenderer->InkSpaceToPixel((long)hdc, &rc.left, &rc.top))
-                    || FAILED(m_spIInkRenderer->InkSpaceToPixel((long)hdc, &rc.right,
-                                                                &rc.bottom)))
-                {
-                    // Failed mapping from ink space to screen,
-                    // update entire client area of the input window
-                    m_wndInput.GetClientRect(&rc);
-                }
-                ReleaseDC(hdc);
-            }
-            else
-            {
-                // Failed getting an hdc, update entire client area of the input window
-                m_wndInput.GetClientRect(&rc);
-            }
-        }
-        else
-        {
-            // Failed getting the bounding box, update entire client area of the input window
-            m_wndInput.GetClientRect(&rc);
-        }
+        m_wndInput.GetClientRect(&rc);
 
         m_wndInput.InvalidateRect(&rc);
     }
@@ -751,27 +677,6 @@ LRESULT CAdvRecoApp::OnClear(
     {
         // Delete all strokes from the Ink object, ignore returned value
         m_spIInkDisp->DeleteStrokes(0);
-
-        // Release the old stroke collection and get an empty one
-        m_spIInkStrokes.Release();
-        CComVariant vt(0);
-        if (FAILED(m_spIInkDisp->CreateStrokes(vt, &m_spIInkStrokes)))
-        {
-            MessageBox(TEXT("Failed to get the stroke collection from the Ink object!"),
-                       gc_szAppName, MB_ICONERROR | MB_OK);
-        }
-
-        // Attach the new stroke collection to the recognition context.
-        // If get_Strokes has failed, m_spIInkStrokes is NULL, so no
-        // stroke collection will be attached to the context
-        if (m_spIInkRecoContext != NULL)
-        {
-            if (FAILED(m_spIInkRecoContext->putref_Strokes(m_spIInkStrokes)))
-            {
-                MessageBox(TEXT("Failed to attach the stroke collection to the recognition context!"),
-                           gc_szAppName, MB_ICONERROR | MB_OK);
-            }
-        }
     }
 
     // Update the child windows
@@ -834,22 +739,6 @@ HMENU CAdvRecoApp::LoadMenu()
 {
     HRESULT hr = S_OK;
 
-    // Create the enumerator for the installed recognizers
-    hr = m_spIInkRecognizers.CoCreateInstance(CLSID_InkRecognizers);
-    if (FAILED(hr))
-        return NULL;
-
-    // Get the number of the recognizers known to the system
-    LONG lCount = 0;
-    hr = m_spIInkRecognizers->get_Count(&lCount);
-    if (0 == lCount)
-    {
-        ::MessageBox(NULL, TEXT("There are no handwriting recognizers installed.\n")
-                     TEXT("You need to have at least one in order to run this sample.\nExiting."),
-                     gc_szAppName, MB_ICONERROR | MB_OK);
-        return NULL;
-    }
-
     // Load the menu of the main window
     HMENU hMenu = ::LoadMenu(_Module.GetResourceInstance(), MAKEINTRESOURCE(IDR_MENU));
     if (NULL == hMenu)
@@ -860,44 +749,6 @@ HMENU CAdvRecoApp::LoadMenu()
     miinfo.cbSize = sizeof(miinfo);
     miinfo.fMask = MIIM_ID | MIIM_STATE | MIIM_FTYPE | MIIM_STRING;
     miinfo.fType = MFT_RADIOCHECK | MFT_STRING;
-
-    // Get the submenu id for the recognizers menu.
-    // This submenu will contain the list of installed recognizers
-    HMENU hSubMenu = ::GetSubMenu(hMenu, mc_iSubmenuRecognizers);
-    if (hSubMenu)
-    {
-        CComPtr<IInkRecognizer> spIInkRecognizer;
-
-        // The ID_RECOGNIZER_FIRST is defined in the resource.h file.
-        // It's the base id for the commands that fill this submenu
-        miinfo.wID = ID_RECOGNIZER_FIRST;
-        miinfo.fState = 0;
-        for (LONG i = 0; i < lCount; i++, miinfo.wID++)
-        {
-            if (FAILED(m_spIInkRecognizers->Item(i, &spIInkRecognizer)))
-                continue;
-
-            // Filter out non-language recognizers by checking for
-            // the languages supported by the recognizer - there'll be
-            // none if it's a gesture or object recognizer.
-            CComVariant vLanguages;
-            if (SUCCEEDED(spIInkRecognizer->get_Languages(&vLanguages)))
-            {
-                if ((VT_ARRAY == (VT_ARRAY & vLanguages.vt))            // it should be an array
-                    && (NULL != vLanguages.parray)
-                    && (0 < vLanguages.parray->rgsabound[0].cElements)) // with at least one element
-                {
-                    CComBSTR bstrName;
-                    if (SUCCEEDED(spIInkRecognizer->get_Name(&bstrName)))
-                    {
-                        miinfo.dwTypeData = bstrName;
-                        ::InsertMenuItemW(hSubMenu, (UINT)-1, TRUE, &miinfo);
-                    }
-                }
-                spIInkRecognizer.Release();
-            }
-        }
-    }
 
     return hMenu;
 }
@@ -937,18 +788,6 @@ void CAdvRecoApp::UpdateInputScopeMenu()
                     MessageBox(TEXT("Failed to get the context's Factoid property."),
                                 gc_szAppName, MB_ICONERROR | MB_OK);
                     return;
-                }
-
-                // Need to reset the recognition context in order to change the Factoid property
-                if (m_spIInkStrokes != NULL)
-                {
-                    m_spIInkRecoContext->putref_Strokes(NULL);
-                }
-
-                // Re-attach the stroke collection to the context
-                if (m_spIInkStrokes != NULL)
-                {
-                    m_spIInkRecoContext->putref_Strokes(m_spIInkStrokes);
                 }
             }
         }

@@ -100,23 +100,11 @@ public:
 BEGIN_SINK_MAP(IInkCollectorEventsImpl)
     SINK_ENTRY_INFO(SINK_ID, 
                     DIID__IInkCollectorEvents, 
-                    DISPID_CEStroke, 
-                    Stroke, 
-                    const_cast<_ATL_FUNC_INFO*>(&mc_AtlFuncInfo[0]))
-    SINK_ENTRY_INFO(SINK_ID, 
-                    DIID__IInkCollectorEvents, 
                     DISPID_CEGesture, 
                     Gesture, 
                     const_cast<_ATL_FUNC_INFO*>(&mc_AtlFuncInfo[1]))
 END_SINK_MAP()
 
-    HRESULT __stdcall Stroke(IInkCursor* pIInkCursor, IInkStrokeDisp* pInkStroke, 
-                             VARIANT_BOOL* pbCancel)
-    {
-		T* pT = static_cast<T*>(this);
-        return pT->OnStroke(pIInkCursor, pInkStroke, pbCancel);
-    }
-    
     HRESULT __stdcall Gesture(IInkCursor* pIInkCursor, IInkStrokes* pInkStrokes, 
                               VARIANT vGestures, VARIANT_BOOL* pbCancel)
     {

@@ -57,11 +57,8 @@ public:
 
     // Automation API interface pointers
     CComPtr<IInkCollector>          m_spIInkCollector;
-    CComPtr<IInkRenderer>           m_spIInkRenderer;
     CComPtr<IInkDisp>               m_spIInkDisp;
-    CComPtr<IInkStrokes>            m_spIInkStrokes;
     CComPtr<IInkRecognizerContext>  m_spIInkRecoContext;
-    CComPtr<IInkRecognizers>        m_spIInkRecognizers;
 
     // Child windows
     CInkInputWnd    m_wndInput;
@@ -142,8 +139,6 @@ public:
     LRESULT OnExit(WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHandled);
 
     // Ink collector event handler
-    HRESULT OnStroke(IInkCursor* pIInkCursor, IInkStrokeDisp* pIInkStroke, 
-                     VARIANT_BOOL* pbCancel);
     HRESULT OnGesture(IInkCursor* pIInkCursor, IInkStrokes* pIInkStrokes, 
                       VARIANT vGestures, VARIANT_BOOL* pbCancel);
 
