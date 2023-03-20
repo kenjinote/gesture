@@ -35,46 +35,6 @@
 
 /////////////////////////////////////////////////////////
 //                                          
-// IInkRecognitionEventsImpl
-// 
-// The template is derived from the ATL's IDispEventSimpleImpl 
-// to implement a sink for the IInkRecognitionEvents, fired by 
-// the InkRecoContext object
-//
-/////////////////////////////////////////////////////////
-
-template <class T>
-class ATL_NO_VTABLE IInkRecognitionEventsImpl :
-	public IDispEventSimpleImpl<SINK_ID, IInkRecognitionEventsImpl<T>, 
-                                &DIID__IInkRecognitionEvents>
-{
-public:
-    // ATL structure with the type information for the event, 
-    // handled in this template. (Initialized in the AdvReco.cpp)
-    static const _ATL_FUNC_INFO mc_AtlFuncInfo;
-
-BEGIN_SINK_MAP(IInkRecognitionEventsImpl)
-    SINK_ENTRY_INFO(SINK_ID, 
-                    DIID__IInkRecognitionEvents, 
-                    DISPID_RERecognitionWithAlternates,
-                    RecognitionWithAlternates, 
-                    const_cast<_ATL_FUNC_INFO*>(&mc_AtlFuncInfo))
-END_SINK_MAP()
-
-    HRESULT __stdcall RecognitionWithAlternates(IInkRecognitionResult* pIInkRecoResult, 
-                                                VARIANT vCustomParam,
-                                                InkRecognitionStatus RecognitionStatus)
-    {
-		T* pT = static_cast<T*>(this);
-        return pT->OnRecognitionWithAlternates(pIInkRecoResult, 
-                                               vCustomParam,
-                                               RecognitionStatus);
-    }
-};
-
-
-/////////////////////////////////////////////////////////
-//                                          
 // IInkCollectorEventsImpl
 // 
 // The template is derived from the ATL's IDispEventSimpleImpl 
@@ -95,14 +55,14 @@ class ATL_NO_VTABLE IInkCollectorEventsImpl :
 public:
     // ATL structures with the type information for each event, 
     // handled in this template.(Initialized in the AdvReco.cpp)
-    static const _ATL_FUNC_INFO mc_AtlFuncInfo[2];
+    static const _ATL_FUNC_INFO mc_AtlFuncInfo[1];
 
 BEGIN_SINK_MAP(IInkCollectorEventsImpl)
     SINK_ENTRY_INFO(SINK_ID, 
                     DIID__IInkCollectorEvents, 
                     DISPID_CEGesture, 
                     Gesture, 
-                    const_cast<_ATL_FUNC_INFO*>(&mc_AtlFuncInfo[1]))
+                    const_cast<_ATL_FUNC_INFO*>(&mc_AtlFuncInfo[0]))
 END_SINK_MAP()
 
     HRESULT __stdcall Gesture(IInkCursor* pIInkCursor, IInkStrokes* pInkStrokes, 

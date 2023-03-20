@@ -22,59 +22,37 @@
 
 class CAdvRecoApp : 
     public CWindowImpl<CAdvRecoApp>,
-    public IInkCollectorEventsImpl<CAdvRecoApp>,
-    public IInkRecognitionEventsImpl<CAdvRecoApp>
+    public IInkCollectorEventsImpl<CAdvRecoApp>
 {
 public:
     // Constants 
 
     enum { 
-        // submenus indices
-        mc_iSubmenuRecognizers = 1, 
-        mc_iSubmenuInputScopes = 2, 
-        mc_iSubmenuGuides = 3,
-        mc_iSubmenuModes = 4,
         // child windows IDs
         mc_iInputWndId = 1, 
         mc_iOutputWndId = 2, 
-        mc_iStatusWndId = 3,
         mc_iSSGestLVId = 4,
         mc_iMSGestLVId = 5,
         // recognition guide box data
-        mc_iNumRowsCols = 100,
-        mc_iGuideColWidth = 100, 
-        mc_iGuideRowHeight = 100,
-        mc_cxBoxMargin = 4,
-        mc_cyBoxMargin = 4,
         // the width of the gesture list views 
         mc_cxGestLVWidth = 160, 
         // the number of the gesture names in the string table
         mc_cNumSSGestures = 36,     // single stroke gestures
         mc_cNumMSGestures =  6,     // multi-stroke gestures
-        // pen width
-        mc_iPenWidth = 5
     };
 
     // Automation API interface pointers
     CComPtr<IInkCollector>          m_spIInkCollector;
     CComPtr<IInkDisp>               m_spIInkDisp;
-    CComPtr<IInkRecognizerContext>  m_spIInkRecoContext;
 
     // Child windows
     CInkInputWnd    m_wndInput;
     CRecoOutputWnd  m_wndResults;
-    HWND            m_hwndStatusBar;
     HWND            m_hwndSSGestLV;     // single stroke gestures list view
     HWND            m_hwndMSGestLV;     // multiple stroke gestures list view
 
     // Helper data members
-    UINT            m_nCmdRecognizer;
-    UINT            m_nCmdInputScope;
-    UINT            m_nCmdGuide;
     UINT            m_nCmdMode;
-    CComBSTR        m_bstrCurRecoName;
-    bool            m_bCoerceInputScope;
-    SIZE            m_szGuideBox;
     bool            m_bAllSSGestures;
     bool            m_bAllMSGestures;
 
@@ -83,20 +61,15 @@ public:
 
     // Constructor
     CAdvRecoApp() :
-        m_hwndStatusBar(NULL), m_hwndSSGestLV(NULL), m_hwndMSGestLV(NULL),
-        m_bCoerceInputScope(false), 
-        m_nCmdGuide(0), m_nCmdInputScope(0), m_nCmdRecognizer(0), m_nCmdMode(0),
+        m_hwndSSGestLV(NULL), m_hwndMSGestLV(NULL), m_nCmdMode(0),
         m_bAllSSGestures(true), m_bAllMSGestures(true)
     {
-        m_szGuideBox.cx = m_szGuideBox.cy = 0;
     }
 
     // Helper methods
     HMENU   LoadMenu();
     bool    CreateChildWindows();
     void    UpdateLayout();
-    void    UpdateMenuRadioItems(UINT iSubMenu, UINT idCheck, UINT idUncheck);
-    void    UpdateInputScopeMenu();
     bool    GetGestureName(InkApplicationGesture idGesture, UINT& idGestureName);
     void    PresetGestures();
     
@@ -127,13 +100,11 @@ public:
     // Window message handlers
     LRESULT OnCreate(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled);
     LRESULT OnDestroy(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled);
-    LRESULT OnSetFocus(UINT, WPARAM, LPARAM, BOOL& bHandled);
     LRESULT OnSize(UINT, WPARAM, LPARAM, BOOL& bHandled);
     LRESULT OnLVColumnClick(int idCtrl, LPNMHDR pnmh, BOOL& bHandled);
     LRESULT OnLVItemChanging(int idCtrl, LPNMHDR pnmh, BOOL& bHandled);
     
     // Command handlers
-    LRESULT OnInputScopeCoerce(WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHandled);
     LRESULT OnMode(WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHandled);
     LRESULT OnClear(WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHandled);
     LRESULT OnExit(WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHandled);
@@ -141,10 +112,5 @@ public:
     // Ink collector event handler
     HRESULT OnGesture(IInkCursor* pIInkCursor, IInkStrokes* pIInkStrokes, 
                       VARIANT vGestures, VARIANT_BOOL* pbCancel);
-
-    // Recognition event handler
-    HRESULT OnRecognitionWithAlternates(IInkRecognitionResult* pIInkRecoResult, 
-                                        VARIANT vCustomParam,
-                                        InkRecognitionStatus RecognitionStatus);
 };
 

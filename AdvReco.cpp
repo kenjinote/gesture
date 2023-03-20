@@ -103,14 +103,6 @@ const InkApplicationGesture gc_igtSingleStrokeGestures[] = {
     IAG_LeftDown, IAG_RightUp, IAG_RightDown, IAG_Tap
 };
 
-// The following array of indices to the gc_igtSingleStrokeGestures makes the subset
-// of gestures recommended for use in the mixed collection mode (ICM_InkAndGesture)
-// (the others still can be used in the mixed mode but it's not recommended because
-// of their similarity with some characters).
-const UINT gc_nRecommendedForMixedMode[] = {
-        0 /*Scratchout*/, 3/*Star*/, 6/*Double Circle*/,
-        7 /*Curlicue*/, 8 /*Double Curlicue*/, 25 /*Down-Left Long*/ };
-
 // The set of the multiple stroke gestures known to this application
 const InkApplicationGesture gc_igtMultiStrokeGestures[] = {
     IAG_ArrowUp, IAG_ArrowDown, IAG_ArrowLeft,
@@ -120,11 +112,7 @@ const InkApplicationGesture gc_igtMultiStrokeGestures[] = {
 // The static members of the event sink templates are initialized here
 // (defined in EventSinks.h)
 
-const _ATL_FUNC_INFO IInkRecognitionEventsImpl<CAdvRecoApp>::mc_AtlFuncInfo =
-        {CC_STDCALL, VT_EMPTY, 3, {VT_UNKNOWN, VT_VARIANT, VT_I4}};
-
-const _ATL_FUNC_INFO IInkCollectorEventsImpl<CAdvRecoApp>::mc_AtlFuncInfo[2] = {
-        {CC_STDCALL, VT_EMPTY, 3, {VT_UNKNOWN, VT_UNKNOWN, VT_BOOL|VT_BYREF}},
+const _ATL_FUNC_INFO IInkCollectorEventsImpl<CAdvRecoApp>::mc_AtlFuncInfo[1] = {
         {CC_STDCALL, VT_EMPTY, 4, {VT_UNKNOWN, VT_UNKNOWN, VT_VARIANT, VT_BOOL|VT_BYREF}}
 };
 
@@ -349,15 +337,6 @@ LRESULT CAdvRecoApp::OnDestroy(
         m_spIInkCollector.Release();
     }
 
-    // Detach the strokes collection from the recognition context
-    // and stop listening to the recognition events
-    if (m_spIInkRecoContext != NULL)
-    {
-        m_spIInkRecoContext->EndInkInput();
-        IInkRecognitionEventsImpl<CAdvRecoApp>::DispEventUnadvise(m_spIInkRecoContext);
-        m_spIInkRecoContext.Release();
-    }
-
     // Post a WM_QUIT message to the application's message queue
     ::PostQuitMessage(0);
 
@@ -507,72 +486,6 @@ HRESULT CAdvRecoApp::OnGesture(
     return hr;
 }
 
-// Recognition event handlers ////////////////////////////
-
-/////////////////////////////////////////////////////////
-//
-// CAdvRecoApp::OnRecognitionWithAlternates
-//
-// The _IInkRecognitionEvents's RecognitionWithAlternates event handler
-//
-// Parameters:
-//      IInkRecognitionResult* pIInkRecoResult  :
-//      VARIANT vCustomParam                    : not used here
-//      InkRecognitionStatus RecognitionStatus  : not used here
-//
-// Return Values (HRESULT):
-//      S_OK if succeeded, E_FAIL or E_INVALIDARG otherwise
-//
-/////////////////////////////////////////////////////////
-HRESULT CAdvRecoApp::OnRecognitionWithAlternates(
-        IInkRecognitionResult* pIInkRecoResult,
-        VARIANT /*vCustomParam*/,
-        InkRecognitionStatus /*RecognitionStatus*/
-        )
-{
-    if (NULL == pIInkRecoResult)
-        return E_INVALIDARG;
-
-    // Reset the old results
-    m_wndResults.ResetResults();
-
-    // Get the best lCount results
-    HRESULT hr;
-    CComPtr<IInkRecognitionAlternates> spIInkRecoAlternates;
-    hr = pIInkRecoResult->AlternatesFromSelection(
-        0,                              // in: selection start
-        -1,                             // in: selection length; -1 means "up to the last one"
-        CRecoOutputWnd::mc_iNumResults, // in: the number of alternates we're interested in
-        &spIInkRecoAlternates           // out: the receiving pointer
-        );
-
-    // Count the returned alternates, it may be less then we asked for
-    LONG lCount = 0;
-    if (SUCCEEDED(hr) && SUCCEEDED(spIInkRecoAlternates->get_Count(&lCount)))
-    {
-        // Get the alternate strings
-        IInkRecognitionAlternate* pIInkRecoAlternate = NULL;
-        for (LONG iItem = 0; (iItem < lCount) && (iItem < CRecoOutputWnd::mc_iNumResults); iItem++)
-        {
-            // Get the alternate string if there is one
-            if (SUCCEEDED(spIInkRecoAlternates->Item(iItem, &pIInkRecoAlternate)))
-            {
-                BSTR bstr = NULL;
-                if (SUCCEEDED(pIInkRecoAlternate->get_String(&bstr)))
-                {
-                    m_wndResults.m_bstrResults[iItem].Attach(bstr);
-                }
-                pIInkRecoAlternate->Release();
-            }
-        }
-    }
-
-    // Update the output window with the new results
-    m_wndResults.Invalidate();
-
-    return S_OK;
-}
-
 // Command handlers /////////////////////////////////////
 
 /////////////////////////////////////////////////////////
@@ -626,7 +539,6 @@ LRESULT CAdvRecoApp::OnMode(
         {
 
             // Update the menu
-            UpdateMenuRadioItems(mc_iSubmenuModes, wID, m_nCmdMode);
             m_nCmdMode = wID;  // store the selected mode's associated command id
 
             // Show or hide the gesture list views
@@ -737,110 +649,7 @@ LRESULT CAdvRecoApp::OnExit(
 /////////////////////////////////////////////////////////
 HMENU CAdvRecoApp::LoadMenu()
 {
-    HRESULT hr = S_OK;
-
-    // Load the menu of the main window
-    HMENU hMenu = ::LoadMenu(_Module.GetResourceInstance(), MAKEINTRESOURCE(IDR_MENU));
-    if (NULL == hMenu)
-        return NULL; // Not normal
-
-    MENUITEMINFOW miinfo;
-    memset(&miinfo, 0, sizeof(miinfo));
-    miinfo.cbSize = sizeof(miinfo);
-    miinfo.fMask = MIIM_ID | MIIM_STATE | MIIM_FTYPE | MIIM_STRING;
-    miinfo.fType = MFT_RADIOCHECK | MFT_STRING;
-
-    return hMenu;
-}
-
-/////////////////////////////////////////////////////////
-//
-// CAdvRecoApp::UpdateInputScopeMenu
-//
-// This helper method updates the enabled/disabled state
-// of submenus in the InputScope menu.
-// It's called whenever the user selects a different
-// recognizer. Verification of support for the InputScope
-// is accomplished by calling put_Factoid, and checking
-// the returned HRESULT.
-//
-// Parameters:
-//      none
-//
-// Return Values (void):
-//      none
-//
-/////////////////////////////////////////////////////////
-void CAdvRecoApp::UpdateInputScopeMenu()
-{
-    HMENU hMenu = GetMenu();
-    if (NULL != hMenu)
-    {
-        HMENU hSubMenu = ::GetSubMenu(hMenu, mc_iSubmenuInputScopes);
-        if (NULL != hSubMenu)
-        {
-            if (m_spIInkRecoContext != NULL)
-            {
-                // Cache the current Factoid property so that we can revert later
-                CComBSTR bstrInputScope;
-                if (FAILED(m_spIInkRecoContext->get_Factoid(&bstrInputScope)))
-                {
-                    MessageBox(TEXT("Failed to get the context's Factoid property."),
-                                gc_szAppName, MB_ICONERROR | MB_OK);
-                    return;
-                }
-            }
-        }
-    }
-}
-
-/////////////////////////////////////////////////////////
-//
-// CAdvRecoApp::UpdateMenuRadioItems
-//
-// As it follows from the name, this helper method updates
-// the specified radio items in the submenu.
-// It's called for the appropriate items, whenever user selects
-// a different recognizer, input scope, or guide mode.
-//
-// Parameters:
-//      UINT iSubMenu   : [in] the submenu to make updates in
-//      UINT idCheck    : [in] the menu item to check
-//      UINT idUncheck  : [in] the menu item to uncheck
-//
-// Return Values (void):
-//      none
-//
-/////////////////////////////////////////////////////////
-void CAdvRecoApp::UpdateMenuRadioItems(
-        UINT iSubMenu,
-        UINT idCheck,
-        UINT idUncheck
-        )
-{
-    // Update the menu
-    HMENU hMenu = GetMenu();
-    if (NULL != hMenu)
-    {
-        HMENU hSubMenu = ::GetSubMenu(hMenu, iSubMenu);
-        if (NULL != hSubMenu)
-        {
-            MENUITEMINFO miinfo;
-            miinfo.cbSize = sizeof(miinfo);
-            miinfo.fMask = MIIM_STATE | MIIM_FTYPE;
-            ::GetMenuItemInfo(hSubMenu, idCheck, FALSE, &miinfo);
-            miinfo.fType |= MFT_RADIOCHECK;
-            miinfo.fState |= MFS_CHECKED;
-            ::SetMenuItemInfo(hSubMenu, idCheck, FALSE, &miinfo);
-            if (0 != idUncheck)
-            {
-                ::GetMenuItemInfo(hSubMenu, idUncheck, FALSE, &miinfo);
-                miinfo.fType |= MFT_RADIOCHECK;
-                miinfo.fState &= ~MFS_CHECKED;
-                ::SetMenuItemInfo(hSubMenu, idUncheck, FALSE, &miinfo);
-            }
-        }
-    }
+    return ::LoadMenu(_Module.GetResourceInstance(), MAKEINTRESOURCE(IDR_MENU));
 }
 
 /////////////////////////////////////////////////////////
@@ -1045,17 +854,6 @@ bool CAdvRecoApp::CreateChildWindows()
             return false;
     }
 
-    // Create a status bar (Ignore if it fails, the application can live without it).
-    m_hwndStatusBar = ::CreateStatusWindow(
-                        WS_CHILD|WS_VISIBLE|WS_CLIPCHILDREN|WS_CLIPSIBLINGS|SBARS_SIZEGRIP,
-                        NULL, m_hWnd, (UINT)mc_iStatusWndId);
-    if (NULL != m_hwndStatusBar)
-    {
-        ::SendMessage(m_hwndStatusBar,
-                      WM_SETFONT,
-                      (LPARAM)::GetStockObject(DEFAULT_GUI_FONT), FALSE);
-    }
-
     // Update the child windows' positions and sizes so that they cover
     // entire client area of the main window.
     UpdateLayout();
@@ -1083,23 +881,6 @@ void CAdvRecoApp::UpdateLayout()
 {
     RECT rect;
     GetClientRect(&rect);
-
-    // update the size and position of the status bar
-    if (::IsWindow(m_hwndStatusBar)
-        && ((DWORD)::GetWindowLong(m_hwndStatusBar, GWL_STYLE) & WS_VISIBLE))
-    {
-        ::SendMessage(m_hwndStatusBar, WM_SIZE, 0, 0);
-        RECT rectStatusBar;
-        ::GetWindowRect(m_hwndStatusBar, &rectStatusBar);
-        if (rect.bottom > rectStatusBar.bottom - rectStatusBar.top)
-        {
-            rect.bottom -= rectStatusBar.bottom - rectStatusBar.top;
-        }
-        else
-        {
-            rect.bottom = 0;
-        }
-    }
 
     // update the size and position of the gesture listviews
     if (::IsWindow(m_hwndSSGestLV) && ::IsWindow(m_hwndMSGestLV))
@@ -1266,11 +1047,9 @@ void CAdvRecoApp::PresetGestures()
 
     // Set the status of the single stroke gestures
     ULONG iNumGestures = countof(gc_igtSingleStrokeGestures);
-    ULONG iNumSubset = countof(gc_nRecommendedForMixedMode);
-    for (ULONG i = 0; i < iNumSubset; i++)
+    for (ULONG i = 0; i < iNumGestures; i++)
     {
-        if (gc_nRecommendedForMixedMode[i] < iNumGestures)
-            ListView_SetCheckState(m_hwndSSGestLV, gc_nRecommendedForMixedMode[i], TRUE);
+        ListView_SetCheckState(m_hwndSSGestLV, i, TRUE);
     }
 
     // Set the status of the multiple stroke gestures
