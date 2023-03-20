@@ -32,7 +32,6 @@ class CInkInputWnd :
     public CWindowImpl<CInkInputWnd>
 {
 	// Data members 
-	POINT   m_ptGridLT;			// the left-top corner of the guide grid
     SIZE    m_szWritingBox;		// the size of the guide's writing box
     RECT    m_rcDrawnBox;		// the guide's draw box rectangle relative to the writing box
     int     m_cRows;			// the number of rows in the guide

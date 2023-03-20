@@ -62,7 +62,6 @@ public:
     CComPtr<IInkStrokes>            m_spIInkStrokes;
     CComPtr<IInkRecognizerContext>  m_spIInkRecoContext;
     CComPtr<IInkRecognizers>        m_spIInkRecognizers;
-    CComPtr<IInkRecognizerGuide>    m_spIInkRecoGuide;
 
     // Child windows
     CInkInputWnd    m_wndInput;
@@ -101,8 +100,6 @@ public:
     void    UpdateLayout();
     void    UpdateMenuRadioItems(UINT iSubMenu, UINT idCheck, UINT idUncheck);
     void    UpdateInputScopeMenu();
-    void    UpdateStatusBar();
-    bool    UseRecognizer(IInkRecognizer* pIInkRecognizer);
     bool    GetGestureName(InkApplicationGesture idGesture, UINT& idGestureName);
     void    PresetGestures();
     
@@ -117,17 +114,9 @@ BEGIN_MSG_MAP(CAdvRecoApp)
     MESSAGE_HANDLER(WM_CREATE, OnCreate)
     MESSAGE_HANDLER(WM_DESTROY, OnDestroy)
     MESSAGE_HANDLER(WM_SIZE, OnSize)
-    COMMAND_ID_HANDLER(ID_RECOGNIZER_DEFAULT, OnRecognizer)
-    COMMAND_RANGE_HANDLER(ID_RECOGNIZER_FIRST, ID_RECOGNIZER_LAST, OnRecognizer)
-    COMMAND_ID_HANDLER(ID_INPUTSCOPE_COERCE, OnInputScopeCoerce)
-    COMMAND_RANGE_HANDLER(ID_INPUTSCOPE_FIRST, ID_INPUTSCOPE_LAST, OnInputScope)
-    COMMAND_ID_HANDLER(ID_GUIDE_NONE, OnGuide)
-    COMMAND_ID_HANDLER(ID_GUIDE_LINES, OnGuide)
-    COMMAND_ID_HANDLER(ID_GUIDE_BOXES, OnGuide)
     COMMAND_ID_HANDLER(ID_MODE_INK, OnMode)
     COMMAND_ID_HANDLER(ID_MODE_INK_AND_GESTURES, OnMode)
     COMMAND_ID_HANDLER(ID_MODE_GESTURES, OnMode)
-    COMMAND_ID_HANDLER(ID_RECOGNIZE, OnRecognize)
     COMMAND_ID_HANDLER(ID_CLEAR, OnClear)
     COMMAND_ID_HANDLER(ID_EXIT, OnExit)
     NOTIFY_HANDLER(mc_iSSGestLVId, LVN_COLUMNCLICK, OnLVColumnClick)
@@ -147,12 +136,8 @@ public:
     LRESULT OnLVItemChanging(int idCtrl, LPNMHDR pnmh, BOOL& bHandled);
     
     // Command handlers
-    LRESULT OnRecognizer(WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHandled);
     LRESULT OnInputScopeCoerce(WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHandled);
-    LRESULT OnInputScope(WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHandled);
-    LRESULT OnGuide(WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHandled);
     LRESULT OnMode(WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHandled);
-    LRESULT OnRecognize(WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHandled);
     LRESULT OnClear(WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHandled);
     LRESULT OnExit(WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHandled);
 

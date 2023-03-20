@@ -86,53 +86,6 @@ CComModule _Module;
 #include "ChildWnds.h"      // definitions of the CInkInputWnd and CRecoOutputWnd
 #include "AdvReco.h"        // contains the definition of CAddRecoApp
 
-// The names of the supported Input Scopes.
-// All these names are used both to create a menu item and
-// as the parameter in IInkRecoContext::put_Factoid(name).
-const LPOLESTR gc_pwsInputScopes[] = {
-    L"(!IS_DEFAULT)",
-    L"(!IS_URL)",
-    L"(!IS_FILE_FULLFILEPATH)",
-    L"(!IS_FILE_FILENAME)",
-    L"(!IS_EMAIL_USERNAME)",
-    L"(!IS_EMAIL_SMTPEMAILADDRESS)",
-    L"(!IS_LOGINNAME)",
-    L"(!IS_PERSONALNAME_FULLNAME)",
-    L"(!IS_PERSONALNAME_PREFIX)",
-    L"(!IS_PERSONALNAME_GIVENNAME)",
-    L"(!IS_PERSONALNAME_MIDDLENAME)",
-    L"(!IS_PERSONALNAME_SURNAME)",
-    L"(!IS_PERSONALNAME_SUFFIX)",
-    L"(!IS_ADDRESS_FULLPOSTALADDRESS)",
-    L"(!IS_ADDRESS_POSTALCODE)",
-    L"(!IS_ADDRESS_STREET)",
-    L"(!IS_ADDRESS_STATEORPROVINCE)",
-    L"(!IS_ADDRESS_CITY)",
-    L"(!IS_ADDRESS_COUNTRYNAME)",
-    L"(!IS_ADDRESS_COUNTRYSHORTNAME)",
-    L"(!IS_CURRENCY_AMOUNTANDSYMBOL)",
-    L"(!IS_CURRENCY_AMOUNT)",
-    L"(!IS_DATE_FULLDATE)",
-    L"(!IS_DATE_MONTH)",
-    L"(!IS_DATE_DAY)",
-    L"(!IS_DATE_YEAR)",
-    L"(!IS_DATE_MONTHNAME)",
-    L"(!IS_DATE_DAYNAME)",
-    L"(!IS_DIGITS)",
-    L"(!IS_NUMBER)",
-    L"(!IS_ONECHAR)",
-    L"(!IS_TELEPHONE_FULLTELEPHONENUMBER)",
-    L"(!IS_TELEPHONE_COUNTRYCODE)",
-    L"(!IS_TELEPHONE_AREACODE)",
-    L"(!IS_TELEPHONE_LOCALNUMBER)",
-    L"(!IS_TIME_FULLTIME)",
-    L"(!IS_TIME_HOUR)",
-    L"(!IS_TIME_MINORSEC)",
-    L"((0|1|2|3|4|5|6|7|8|9) ?(0|1|2|3|4|5|6|7|8|9) ?(0|1|2|3|4|5|6|7|8|9) ?-? ?)?(0|1|2|3|4|5|6|7|8|9) ?(0|1|2|3|4|5|6|7|8|9) ?(0|1|2|3|4|5|6|7|8|9) ?-? ?(0|1|2|3|4|5|6|7|8|9) ?(0|1|2|3|4|5|6|7|8|9) ?(0|1|2|3|4|5|6|7|8|9) ?(0|1|2|3|4|5|6|7|8|9)",
-    L"(!IS_PERSONALNAME_FULLNAME)|((!IS_PERSONALNAME_PREFIX)? +(!IS_PERSONALNAME_GIVENNAME)+ +(!IS_PERSONALNAME_MIDDLENAME)* +(!IS_PERSONALNAME_SURNAME)+)",
-    L"MN(0|1|2|3|4|5|6|7|8|9)(0|1|2|3|4|5|6|7|8|9)(A|B)(!IS_DIGITS)(X|Y)((0|1)*)"
-};
-
 // Specifies the maximum allowed length of menu items in the
 // input scope menu.  Any items that exceed this value will
 // be truncated.
@@ -281,7 +234,7 @@ int CAdvRecoApp::Run(
         // Create a recognition context with the default recognizer
         theApp.SendMessage(WM_COMMAND, ID_RECOGNIZER_DEFAULT);
         // Set the collection mode to ICM_InkOnly
-        theApp.SendMessage(WM_COMMAND, ID_MODE_INK);
+        theApp.SendMessage(WM_COMMAND, ID_MODE_INK_AND_GESTURES);
 
         // Show and update the main window
         theApp.ShowWindow(nCmdShow);
@@ -375,60 +328,6 @@ LRESULT CAdvRecoApp::OnCreate(
     if (FAILED(hr))
         return -1;
 
-    // Create a recognizer guide object
-    if (SUCCEEDED(m_spIInkRecoGuide.CoCreateInstance(CLSID_InkRecognizerGuide)))
-    {
-        _InkRecoGuide irg;
-        irg.midline = -1;                   // not use midline
-        irg.cRows = irg.cColumns = 0;       // no guide lines
-        ::SetRect(&irg.rectWritingBox, 0, 0, mc_iGuideColWidth, mc_iGuideRowHeight);
-        // Make the guide's DrawnBox a little smaller than the the actual area
-        // in which a user is expected to draw the ink (WritingBox)
-        irg.rectDrawnBox = irg.rectWritingBox;
-        ::InflateRect(&irg.rectDrawnBox, -mc_cxBoxMargin, -mc_cyBoxMargin);
-
-        // Set the m_wndInput's guide data
-        m_wndInput.SetGuide(irg);
-
-        // Use IInkRenderer to transform the guide boxes rectangles
-        // into ink space coordinates
-        hr = m_spIInkCollector->get_Renderer(&m_spIInkRenderer);
-        if (SUCCEEDED(hr))
-        {
-            HDC hdc = m_wndInput.GetDC();
-            if (NULL != hdc)
-            {
-                // Convert the guide's writing box
-                m_spIInkRenderer->PixelToInkSpace((long)hdc,
-                                                  &irg.rectWritingBox.left,
-                                                  &irg.rectWritingBox.top);
-                m_spIInkRenderer->PixelToInkSpace((long)hdc,
-                                                  &irg.rectWritingBox.right,
-                                                  &irg.rectWritingBox.bottom);
-                // and the drawn box
-                m_spIInkRenderer->PixelToInkSpace((long)hdc,
-                                                  &irg.rectDrawnBox.left,
-                                                  &irg.rectDrawnBox.top);
-                m_spIInkRenderer->PixelToInkSpace((long)hdc,
-                                                  &irg.rectDrawnBox.right,
-                                                  &irg.rectDrawnBox.bottom);
-                // Initialize the guide
-                hr = m_spIInkRecoGuide->put_GuideData(irg);
-                ReleaseDC(hdc);
-            }
-            else
-            {
-                hr = E_FAIL;
-            }
-        }
-
-        // Don't use m_spIInkRecoGuide if failed to set the guide data
-        if (FAILED(hr))
-        {
-            m_spIInkRecoGuide.Release();
-        }
-    }
-
     return 0;
 }
 
@@ -473,7 +372,6 @@ LRESULT CAdvRecoApp::OnDestroy(
     }
 
     // Release the other objects and collections
-    m_spIInkRecoGuide.Release();
     m_spIInkStrokes.Release();
     m_spIInkRecognizers.Release();
 
@@ -753,308 +651,6 @@ HRESULT CAdvRecoApp::OnRecognitionWithAlternates(
 
 /////////////////////////////////////////////////////////
 //
-// CAdvRecoApp::OnRecognizer
-//
-// This command handler is called when user selects a recognizer
-// from the "Recognizer" submenu.
-//
-// Parameters:
-//      defined in the ATL's macro COMMAND_RANGE_HANDLER
-//      Here only wID - the id of the command associated
-//      with the recognizer menu item -  is used.
-//
-// Return Values (LRESULT):
-//      always 0
-//
-/////////////////////////////////////////////////////////
-LRESULT CAdvRecoApp::OnRecognizer(
-        WORD /*wNotifyCode*/,
-        WORD wID,
-        HWND /*hWndCtl*/,
-        BOOL& /*bHandled*/
-        )
-{
-    if (m_spIInkRecognizers == NULL || wID == m_nCmdRecognizer)
-        return 0;
-
-    // Get a pointer to the recognizer object from the recognizer collection
-    // Use DefaultRecognizer method to get a pointer to the default recognizer
-    // or use index for any other one
-    HRESULT hr;
-    CComPtr<IInkRecognizer> spIInkRecognizer;
-    if (ID_RECOGNIZER_DEFAULT == wID)
-    {
-        // The first parameter is the language id, passing 0 means that the language
-        // id will be retrieved using the user default-locale identifier
-        hr = m_spIInkRecognizers->GetDefaultRecognizer(0, &spIInkRecognizer);
-    }
-    else
-    {
-        hr = m_spIInkRecognizers->Item(wID - ID_RECOGNIZER_FIRST, &spIInkRecognizer);
-    }
-
-    // Create new recognition context
-    if (SUCCEEDED(hr) && UseRecognizer(spIInkRecognizer))
-    {
-        // Update the menu and the status bar
-        UpdateMenuRadioItems(mc_iSubmenuRecognizers, wID, m_nCmdRecognizer);
-        m_bstrCurRecoName.Empty();
-        spIInkRecognizer->get_Name(&m_bstrCurRecoName);
-        UpdateStatusBar();
-        // Store the selected recognizer's command id
-        m_nCmdRecognizer = wID;
-    }
-
-    return 0;
-}
-/////////////////////////////////////////////////////////
-//
-// CAdvRecoApp::OnInputScopeCoerce
-//
-// This command handler is called when user checks on or off
-// the "Coerce to InputScope" menu item in the "InputScope" submenu.
-//
-// Parameters:
-//      defined in the ATL's macro COMMAND_ID_HANDLER
-//      Only wID - the id of the command associated
-//      with the clicked menu item - is used here.
-//
-// Return Values (LRESULT):
-//      always 0
-//
-/////////////////////////////////////////////////////////
-LRESULT CAdvRecoApp::OnInputScopeCoerce(
-        WORD /*wNotifyCode*/,
-        WORD wID,
-        HWND /*hWndCtl*/,
-        BOOL& /*bHandled*/
-        )
-{
-    // Ignore the command if the recognition context
-    // has not been created
-    if (m_spIInkRecoContext == NULL )
-        return 0;
-
-    // Need to reset the recognition context to modify the property
-    if (m_spIInkStrokes != NULL)
-    {
-        m_spIInkRecoContext->putref_Strokes(NULL);
-    }
-
-    // Reset the RecognitionFlags property of the recognition context
-    if (FAILED(m_spIInkRecoContext->put_RecognitionFlags (m_bCoerceInputScope?IRM_None:IRM_Coerce)))
-    {
-        MessageBox(TEXT("Failed to reset the RecognitionFlags property!"),
-                       gc_szAppName, MB_ICONERROR | MB_OK);
-        // Re-attach the stroke collection to the context
-        if (m_spIInkStrokes != NULL)
-        {
-            m_spIInkRecoContext->putref_Strokes(m_spIInkStrokes);
-        }
-            return 0;
-        }
-    m_bCoerceInputScope = !m_bCoerceInputScope;
-
-    // Re-attach the stroke collection to the context
-    if (m_spIInkStrokes != NULL)
-    {
-        m_spIInkRecoContext->putref_Strokes(m_spIInkStrokes);
-    }
-
-    // Update the recognition results
-    CComVariant vCustomData;    // no custom data
-    m_spIInkRecoContext->BackgroundRecognizeWithAlternates(vCustomData);
-
-    // Update the menu item
-    HMENU hMenu = GetMenu();
-    if (NULL != hMenu)
-    {
-        HMENU hSubMenu = ::GetSubMenu(hMenu, mc_iSubmenuInputScopes);
-        if (NULL != hSubMenu)
-        {
-            ::CheckMenuItem(hSubMenu, wID,
-                            MF_BYCOMMAND | (m_bCoerceInputScope ? MF_CHECKED : MF_UNCHECKED));
-        }
-    }
-
-    return 0;
-}
-
-/////////////////////////////////////////////////////////
-//
-// CAdvRecoApp::OnInputScope
-//
-// This command handler is called when user selects
-// a input scope name in the "Input Scope" submenu.
-//
-// Parameters:
-//      defined in the ATL's macro COMMAND_RANGE_HANDLER
-//      Only wID - the id of the command associated
-//      with the clicked menu item - is used here.
-//
-// Return Values (LRESULT):
-//      always 0
-//
-/////////////////////////////////////////////////////////
-LRESULT CAdvRecoApp::OnInputScope(
-        WORD /*wNotifyCode*/,
-        WORD wID,
-        HWND /*hWndCtl*/,
-        BOOL& /*bHandled*/
-        )
-{
-    UINT iInputScope = wID - ID_INPUTSCOPE_FIRST;     // get the index to gc_pwsInputScopes
-    // Return if user clicks on the currently selected Input Scope menu item or if
-    // the command id is not in the valid range (shouldn't happen with error free code)
-    if (wID == m_nCmdInputScope || iInputScope >= countof(gc_pwsInputScopes))
-        return 0;
-
-    // Tell the context to use the Input Scope, by assigning the input scope name
-    // to the corresponding property of the context.
-    if (m_spIInkRecoContext != NULL)
-    {
-        // Need to reset the recognition context in order to change the property
-        if (m_spIInkStrokes != NULL)
-        {
-            m_spIInkRecoContext->putref_Strokes(NULL);
-        }
-
-        CComBSTR bstrInputScope(gc_pwsInputScopes[iInputScope]);
-        HRESULT hr = m_spIInkRecoContext->put_Factoid(bstrInputScope);
-
-        // Re-attach the stroke collection to the context
-        if (m_spIInkStrokes != NULL)
-        {
-            m_spIInkRecoContext->putref_Strokes(m_spIInkStrokes);
-        }
-
-        if (SUCCEEDED(hr))
-        {
-            // Update the recognition results
-            CComVariant vCustomData;    // no custom data
-            m_spIInkRecoContext->BackgroundRecognizeWithAlternates(vCustomData);
-        }
-        else if (TPC_E_INVALID_PROPERTY == hr) // the input scope is not supported
-        {
-            MessageBox(TEXT("This factoid is not supported by the recognizer."),
-                       gc_szAppName, MB_ICONINFORMATION | MB_OK);
-            return 0;
-        }
-        else
-        {
-            MessageBox(TEXT("Failed to set the context's Factoid property!"),
-                       gc_szAppName, MB_ICONERROR | MB_OK);
-            return 0;
-        }
-    }
-
-    // Update the menu and the status bar
-    UpdateMenuRadioItems(mc_iSubmenuInputScopes, wID, m_nCmdInputScope);
-    m_nCmdInputScope = wID;
-    UpdateStatusBar();
-
-    return 0;
-}
-
-
-/////////////////////////////////////////////////////////
-//
-// CAdvRecoApp::OnGuide
-//
-// This command handler is called when user selects a type
-// of the recognition guide in the "Guide" submenu.
-//
-// Parameters:
-//      defined in the ATL's macro COMMAND_RANGE_HANDLER
-//      Only wID - the id of the command associated
-//      with the clicked menu item - is used here.
-//
-// Return Values (LRESULT):
-//      always 0
-//
-/////////////////////////////////////////////////////////
-LRESULT CAdvRecoApp::OnGuide(
-        WORD /*wNotifyCode*/,
-        WORD wID,
-        HWND /*hWndCtl*/,
-        BOOL& /*bHandled*/
-        )
-{
-    // Do nothing, if the InkRecoGuide object was not created,
-    // or user selected the currently used type of guide.
-    if (m_spIInkRecoGuide == NULL || wID == m_nCmdGuide)
-        return 0;
-
-    // The sizes of the drawing and writing boxes of the guide were set
-    // in CAdvRecoApp::OnCreate, when the guide object was created.
-    // There is no need to modify them in order to switch the guide from
-    // one type to another. This can be done by setting the guides properties
-    // Rows and Columns to 0 or not 0.
-    int cRows = 0, cColumns = 0;
-    if (ID_GUIDE_LINES == wID || ID_GUIDE_BOXES == wID)
-    {
-        cRows = mc_iNumRowsCols;
-        if (ID_GUIDE_BOXES == wID)
-        {
-            cColumns = mc_iNumRowsCols;
-        }
-    }
-
-    // Put the new values
-    if (SUCCEEDED(m_spIInkRecoGuide->put_Rows(cRows))
-        && SUCCEEDED(m_spIInkRecoGuide->put_Columns(cColumns)))
-    {
-        HRESULT hr = S_OK;
-        if (m_spIInkRecoContext != NULL)
-        {
-            // Need to reset the recognition context in order to change the property
-            if (m_spIInkStrokes != NULL)
-            {
-                m_spIInkRecoContext->putref_Strokes(NULL);
-            }
-
-            // Set the updated guide
-            hr = m_spIInkRecoContext->putref_Guide(m_spIInkRecoGuide);
-
-            // Re-attach the stroke collection to the context
-            if (m_spIInkStrokes != NULL)
-            {
-                m_spIInkRecoContext->putref_Strokes(m_spIInkStrokes);
-            }
-
-            // Update the recognition results
-            CComVariant vCustomData;    // no custom data
-            m_spIInkRecoContext->BackgroundRecognizeWithAlternates(vCustomData);
-        }
-
-        if (SUCCEEDED(hr))
-        {
-            // Update the input window (this call will force it to redraw the guide).
-            m_wndInput.SetRowsCols(cRows, cColumns);
-
-            // Update the menu
-            UpdateMenuRadioItems(mc_iSubmenuGuides, wID, m_nCmdGuide);
-
-            // store the selected guide's associated command id
-            m_nCmdGuide = wID;
-        }
-        else
-        {
-            MessageBox(TEXT("Error setting the guide to the recognition context.\n"),
-                       gc_szAppName, MB_ICONERROR | MB_OK);
-        }
-    }
-    else
-    {
-        MessageBox(TEXT("Error setting the guide's Rows and/or Columns property.\n"),
-                   gc_szAppName, MB_ICONERROR | MB_OK);
-    }
-
-    return 0;
-}
-
-/////////////////////////////////////////////////////////
-//
 // CAdvRecoApp::OnMode
 //
 // This command handler is called when user selects
@@ -1087,9 +683,6 @@ LRESULT CAdvRecoApp::OnMode(
     {
         default:
             return 0;
-        case ID_MODE_INK:
-            icm = ICM_InkOnly;
-            break;
         case ID_MODE_INK_AND_GESTURES:
             icm = ICM_InkAndGesture;
             break;
@@ -1116,17 +709,8 @@ LRESULT CAdvRecoApp::OnMode(
         else
         {
             TCHAR* pszErrorMsg;
-            if (ID_MODE_INK == m_nCmdMode)
-            {
-                pszErrorMsg = TEXT("Unable to change the CollectionMode property on the ")
-                              TEXT("InkCollector.\nA possible reason is that the selected ")
-                              TEXT("mode requires there to be a gesture recognizer installed.");
-            }
-            else
-            {
-                pszErrorMsg = TEXT("Unable to change the CollectionMode property ")
-                              TEXT("on the InkCollector.");
-            }
+            pszErrorMsg = TEXT("Unable to change the CollectionMode property ")
+                            TEXT("on the InkCollector.");
             MessageBox(pszErrorMsg, gc_szAppName, MB_ICONERROR | MB_OK);
         }
         // Enable input
@@ -1134,61 +718,6 @@ LRESULT CAdvRecoApp::OnMode(
         {
             MessageBox(TEXT("Error enabling InkCollector after changing collection mode!"),
                        gc_szAppName, MB_ICONERROR | MB_OK);
-        }
-    }
-
-    return 0;
-}
-
-/////////////////////////////////////////////////////////
-//
-// CAdvRecoApp::OnRecognize
-//
-// This command handler is called when user clicks on "Recognize"
-// in the Ink menu.
-// It's required for East Asian recognizers to finalize the recognition
-//
-// Parameters:
-//      defined in the ATL's macro COMMAND_ID_HANDLER
-//      none of them is used here
-//
-// Return Values (LRESULT):
-//      always 0
-//
-/////////////////////////////////////////////////////////
-LRESULT CAdvRecoApp::OnRecognize(
-        WORD /*wNotifyCode*/,
-        WORD /*wID*/,
-        HWND /*hWndCtl*/,
-        BOOL& /*bHandled*/
-        )
-{
-    if (m_spIInkRecoContext != NULL)
-    {
-        m_spIInkRecoContext->EndInkInput();
-
-        // Recognize
-        CComPtr<IInkRecognitionResult> spIInkRecoResult;
-        InkRecognitionStatus ink_reco_status = IRS_NoError;
-        if (SUCCEEDED(m_spIInkRecoContext->Recognize(&ink_reco_status, &spIInkRecoResult)))
-        {
-            CComVariant vCustomData;    // no custom data
-            OnRecognitionWithAlternates(spIInkRecoResult, vCustomData, ink_reco_status);
-        }
-        else
-        {
-            MessageBox(TEXT("Error code returned from the context's Recognize method."),
-                       gc_szAppName, MB_ICONERROR | MB_OK);
-        }
-
-        // Re-attach the stroke collection to the context
-        if (m_spIInkStrokes != NULL)
-        {
-            if (FAILED(m_spIInkRecoContext->putref_Strokes(m_spIInkStrokes)))
-            {
-                MessageBox(TEXT("Failed to attach the stroke collection to the recognition context!"),
-                           gc_szAppName, MB_ICONERROR | MB_OK);
-            }
         }
     }
 
@@ -1370,36 +899,6 @@ HMENU CAdvRecoApp::LoadMenu()
         }
     }
 
-    // Get the Input Scope submenu and create command items
-    // for each input scope name defined in gc_pwsInputScopes[]
-    hSubMenu = ::GetSubMenu(hMenu, mc_iSubmenuInputScopes);
-    if (hSubMenu)
-    {
-        // The ID_INPUTSCOPE_FIRST is defined in the resource.h file.
-        // It's the base id for the commands that fill this submenu
-        miinfo.wID = ID_INPUTSCOPE_FIRST;
-        miinfo.fState = 0;
-        lCount = countof(gc_pwsInputScopes);
-        for(LONG i = 0; i < lCount; i++, miinfo.wID++)
-        {
-            // Set the input scope menu item text.  If the text
-            // length exceeds the maximum allowed value, then truncate
-            // it and append "...".
-            if (wcslen(gc_pwsInputScopes[i]) <= gc_lMaxInputScopeMenuItemLength)
-            {
-                miinfo.dwTypeData = gc_pwsInputScopes[i];
-            }
-            else
-            {
-                CComBSTR bstrInputScope(gc_lMaxInputScopeMenuItemLength-3, gc_pwsInputScopes[i]);
-                bstrInputScope += L"...";
-                miinfo.dwTypeData = bstrInputScope;
-            }
-
-            ::InsertMenuItemW(hSubMenu, (UINT)-1, TRUE, &miinfo);
-        }
-    }
-
     return hMenu;
 }
 
@@ -1444,35 +943,6 @@ void CAdvRecoApp::UpdateInputScopeMenu()
                 if (m_spIInkStrokes != NULL)
                 {
                     m_spIInkRecoContext->putref_Strokes(NULL);
-                }
-
-                // Enable or disable the InputScope submenu items
-                MENUITEMINFO miinfo;
-                memset(&miinfo, 0, sizeof(miinfo));
-                miinfo.cbSize = sizeof(miinfo);
-                miinfo.fMask = MIIM_STATE;
-                miinfo.wID = ID_INPUTSCOPE_FIRST;
-                for(LONG i = 0; i < countof(gc_pwsInputScopes); i++, miinfo.wID++)
-                {
-                    CComBSTR bstrTestInputScope(gc_pwsInputScopes[i]);
-                    HRESULT hr = m_spIInkRecoContext->put_Factoid(bstrTestInputScope);
-                    if (FAILED(hr))
-                    {
-                        miinfo.fState = MFS_DISABLED;
-                    }
-                    else
-                    {
-                        miinfo.fState = MFS_ENABLED;
-                    }
-                    ::SetMenuItemInfo(hSubMenu, miinfo.wID, FALSE, &miinfo);
-
-                }
-
-                // Revert to the cached Factoid property
-                if (FAILED(m_spIInkRecoContext->put_Factoid(bstrInputScope)))
-                {
-                    MessageBox(TEXT("Failed to set the context's Factoid property."),
-                                gc_szAppName, MB_ICONERROR | MB_OK);
                 }
 
                 // Re-attach the stroke collection to the context
@@ -1532,185 +1002,6 @@ void CAdvRecoApp::UpdateMenuRadioItems(
             }
         }
     }
-}
-
-/////////////////////////////////////////////////////////
-//
-// CAdvRecoApp::UseRecognizer
-//
-// As it follows from the name, this helper method updates
-// the specified radio items in the submenu.
-// It's called for the appropriate items, whenever user selects
-// a different recognizer, input scope, or guide mode.
-//
-// Parameters:
-//      IInkRecognizer* pIInkRecognizer   : [in] the newly selected recognizer
-//
-// Return Values (bool):
-//      true if succeeded creating new recognition context, false otherwise
-//
-/////////////////////////////////////////////////////////
-bool CAdvRecoApp::UseRecognizer(
-        IInkRecognizer* pIInkRecognizer
-        )
-{
-    if (NULL == pIInkRecognizer)
-        return false;
-
-    // Create a new recognition context
-    CComPtr<IInkRecognizerContext> spNewContext;
-    HRESULT hr = pIInkRecognizer->CreateRecognizerContext(&spNewContext);
-    if (FAILED(hr))
-    {
-        MessageBox(TEXT("Error creating a new recognition context!"),
-                   gc_szAppName, MB_ICONERROR | MB_OK);
-        return false;
-    }
-
-    // Change cursor to the system's Hourglass
-    HCURSOR hCursor = ::SetCursor(::LoadCursor(NULL, IDC_WAIT));
-
-    // Detach and release the old context
-    if (m_spIInkRecoContext != NULL)
-    {
-        // Disconnect from the recognition events source
-        IInkRecognitionEventsImpl<CAdvRecoApp>::DispEventUnadvise(m_spIInkRecoContext);
-
-        // Reset and release the recognition context
-        m_spIInkRecoContext->putref_Strokes(NULL);
-        m_spIInkRecoContext.Release();
-    }
-
-    // Establish a connection with the recognition context's event source
-    hr = IInkRecognitionEventsImpl<CAdvRecoApp>::DispEventAdvise(spNewContext);
-    if (FAILED(hr))
-    {
-        MessageBox(TEXT("Error connecting to the recognition context's event source!"),
-                   gc_szAppName, MB_ICONERROR | MB_OK);
-    }
-
-    // Get the recognizer's capabilities flags.
-    // (use IRC__DontCare if get_Capabilities fails)
-    InkRecognizerCapabilities dwCapabilities;
-    if (FAILED(pIInkRecognizer->get_Capabilities(&dwCapabilities)))
-    {
-        dwCapabilities = IRC_DontCare;
-    }
-
-    // Update the Guide menu items
-    const UINT nGuideCmds[] = {ID_GUIDE_BOXES, ID_GUIDE_LINES, ID_GUIDE_NONE};
-    const UINT nGuideFlags[] = {IRC_BoxedInput, IRC_LinedInput, IRC_FreeInput};
-    HMENU hMenu = GetMenu();
-    HMENU hSubMenu = hMenu ? ::GetSubMenu(hMenu, mc_iSubmenuGuides) : NULL;
-    UINT nCmdGuid = 0;
-    for (ULONG i = 0; i < countof(nGuideCmds) && i < countof(nGuideFlags); i++)
-    {
-        UINT nFlags;
-        if (m_spIInkRecoGuide != NULL &&
-            (((nGuideFlags[i] & dwCapabilities) == nGuideFlags[i])
-            || ((IRC_DontCare & dwCapabilities) == IRC_DontCare)))
-        {
-            nFlags = MF_BYCOMMAND | MF_ENABLED;
-            if ((0 == nCmdGuid) || (nGuideCmds[i] == m_nCmdGuide))
-            {
-                nCmdGuid = nGuideCmds[i];
-            }
-        }
-        else
-        {
-            nFlags = MF_BYCOMMAND | MF_GRAYED;
-        }
-        // Update the menu item
-        if (NULL != hSubMenu)
-        {
-            ::EnableMenuItem(hSubMenu, nGuideCmds[i], nFlags);
-        }
-    }
-
-    // Change the guide selection if the current guide is not supported by the recognizer
-    if (m_nCmdGuide != nCmdGuid)
-    {
-        SendMessage(WM_COMMAND, nCmdGuid);
-    }
-
-    // Set the recognition context properties before attaching the stroke collection to it
-
-    // Set the guide
-    if (m_spIInkRecoGuide != NULL && 0 != m_nCmdGuide)
-    {
-        if (FAILED(spNewContext->putref_Guide(m_spIInkRecoGuide)))
-        {
-            MessageBox(TEXT("Failed to set guide to the new recognition context!"),
-                       gc_szAppName, MB_ICONERROR | MB_OK);
-        }
-    }
-
-    // Clear currently set input scope. -1 is being used to indicate no input scope
-    m_nCmdInputScope = -1;
-    m_bCoerceInputScope = false;
-
-    // Reset the Input Scope to baseline
-    CComBSTR bstrFactoid(FACTOID_DEFAULT);
-    if (FAILED(spNewContext->put_Factoid(bstrFactoid)))
-    {
-        MessageBox(TEXT("Failed to set factoid to the new recognition context!"),
-                         gc_szAppName, MB_ICONERROR | MB_OK);
-    }
-
-    // Attach the stroke collection to the context
-    hr = spNewContext->putref_Strokes(m_spIInkStrokes);
-    if (FAILED(hr))
-    {
-        MessageBox(TEXT("Error attaching the stroke collection to the new recognition context!"),
-                   gc_szAppName, MB_ICONERROR | MB_OK);
-    }
-
-    // Use the new context
-    m_spIInkRecoContext.Attach(spNewContext.Detach());
-
-    // Update the radio item check state of the input scope menu
-    UpdateMenuRadioItems(mc_iSubmenuInputScopes, ID_INPUTSCOPE_FIRST, m_nCmdInputScope);
-
-    // Update the enabled/disabled state of the input scope menu
-    UpdateInputScopeMenu();
-
-    // Update the coerce input scope menu item
-    hSubMenu = hMenu ? ::GetSubMenu(hMenu, mc_iSubmenuInputScopes) : NULL;
-    if (NULL != hSubMenu)
-    {
-        ::CheckMenuItem(hSubMenu, ID_INPUTSCOPE_COERCE, MF_BYCOMMAND | MF_UNCHECKED);
-    }
-
-    // Select an appropriate font for the recognition output
-    LANGID wLandId = ::GetUserDefaultLangID();
-    CComVariant vLangIDs;
-    if (SUCCEEDED(pIInkRecognizer->get_Languages(&vLangIDs)) && NULL != vLangIDs.parray)
-    {
-        WORD* pwLIDs;
-        if (SUCCEEDED(::SafeArrayAccessData(vLangIDs.parray, (void HUGEP**)&pwLIDs)))
-        {
-            wLandId = pwLIDs[0];
-            ::SafeArrayUnaccessData(vLangIDs.parray);
-        }
-    }
-    if (false == m_wndResults.UpdateFont(wLandId))
-    {
-        MessageBox(TEXT("Can not find an appropriate font for the selected recognizer.\n")
-                   TEXT("The default font will be used for text output"), gc_szAppName);
-    }
-
-    // Reset the current results
-    m_wndResults.ResetResults();
-    m_wndResults.Invalidate();
-
-    // Update the recognition results
-    CComVariant vCustomData;    // no custom data
-    m_spIInkRecoContext->BackgroundRecognizeWithAlternates(vCustomData);
-
-    // restore the cursor
-    ::SetCursor(hCursor);
-
-    return true;
 }
 
 /////////////////////////////////////////////////////////
@@ -1974,69 +1265,66 @@ void CAdvRecoApp::UpdateLayout()
     // update the size and position of the gesture listviews
     if (::IsWindow(m_hwndSSGestLV) && ::IsWindow(m_hwndMSGestLV))
     {
-        if (ID_MODE_INK != m_nCmdMode)
+        // calculate the rectangle covered by the list views
+        RECT rcGest = rect;
+        if (rcGest.right < mc_cxGestLVWidth)
         {
-            // calculate the rectangle covered by the list views
-            RECT rcGest = rect;
-            if (rcGest.right < mc_cxGestLVWidth)
-            {
-                rcGest.left = 0;
-            }
-            else
-            {
-                rcGest.left = rcGest.right - mc_cxGestLVWidth;
-            }
-
-            rect.right = rcGest.left;
-
-            if (ID_MODE_GESTURES == m_nCmdMode)
-            {
-                int iHeight;
-                RECT rcItem;
-                if (TRUE == ListView_GetItemRect(m_hwndMSGestLV, 0, &rcItem, LVIR_BOUNDS))
-                {
-                    iHeight = rcItem.top + (rcItem.bottom - rcItem.top)
-                                            * (countof(gc_igtMultiStrokeGestures) + 1);
-                }
-                else
-                {
-                    iHeight = (rcGest.bottom - rcGest.top) / 3;
-                }
-
-                // show the multiple stroke gesture listview control
-                ::SetWindowPos(m_hwndMSGestLV, NULL,
-                               rcGest.left, rcGest.bottom - iHeight,
-                               rcGest.right - rcGest.left, iHeight,
-                               SWP_NOZORDER | SWP_NOACTIVATE | SWP_SHOWWINDOW);
-                rcGest.bottom -= iHeight;
-            }
-            else if (WS_VISIBLE ==
-                    (((DWORD)::GetWindowLong(m_hwndMSGestLV, GWL_STYLE)) & WS_VISIBLE))
-            {
-                // hide the multiple stroke gesture listview control
-                ::ShowWindow(m_hwndMSGestLV, SW_HIDE);
-            }
-
-            // show the single stroke gesture listview control
-            ::SetWindowPos(m_hwndSSGestLV, NULL,
-                           rcGest.left, rcGest.top,
-                           rcGest.right - rcGest.left, rcGest.bottom - rcGest.top,
-                           SWP_NOZORDER | SWP_NOACTIVATE | SWP_SHOWWINDOW);
+            rcGest.left = 0;
         }
         else
         {
-            // hide the single stroke gesture listview control
-            if (WS_VISIBLE ==
-                    (((DWORD)::GetWindowLong(m_hwndSSGestLV, GWL_STYLE)) & WS_VISIBLE))
+            rcGest.left = rcGest.right - mc_cxGestLVWidth;
+        }
+
+        rect.right = rcGest.left;
+
+        if (ID_MODE_GESTURES == m_nCmdMode)
+        {
+            int iHeight;
+            RECT rcItem;
+            if (TRUE == ListView_GetItemRect(m_hwndMSGestLV, 0, &rcItem, LVIR_BOUNDS))
             {
-                ::ShowWindow(m_hwndSSGestLV, SW_HIDE);
+                iHeight = rcItem.top + (rcItem.bottom - rcItem.top)
+                                        * (countof(gc_igtMultiStrokeGestures) + 1);
             }
+            else
+            {
+                iHeight = (rcGest.bottom - rcGest.top) / 3;
+            }
+
+            // show the multiple stroke gesture listview control
+            ::SetWindowPos(m_hwndMSGestLV, NULL,
+                            rcGest.left, rcGest.bottom - iHeight,
+                            rcGest.right - rcGest.left, iHeight,
+                            SWP_NOZORDER | SWP_NOACTIVATE | SWP_SHOWWINDOW);
+            rcGest.bottom -= iHeight;
+        }
+        else if (WS_VISIBLE ==
+                (((DWORD)::GetWindowLong(m_hwndMSGestLV, GWL_STYLE)) & WS_VISIBLE))
+        {
             // hide the multiple stroke gesture listview control
-            if (WS_VISIBLE ==
-                    (((DWORD)::GetWindowLong(m_hwndMSGestLV, GWL_STYLE)) & WS_VISIBLE))
-            {
-                ::ShowWindow(m_hwndMSGestLV, SW_HIDE);
-            }
+            ::ShowWindow(m_hwndMSGestLV, SW_HIDE);
+        }
+
+        // show the single stroke gesture listview control
+        ::SetWindowPos(m_hwndSSGestLV, NULL,
+                        rcGest.left, rcGest.top,
+                        rcGest.right - rcGest.left, rcGest.bottom - rcGest.top,
+                        SWP_NOZORDER | SWP_NOACTIVATE | SWP_SHOWWINDOW);
+    }
+    else
+    {
+        // hide the single stroke gesture listview control
+        if (WS_VISIBLE ==
+                (((DWORD)::GetWindowLong(m_hwndSSGestLV, GWL_STYLE)) & WS_VISIBLE))
+        {
+            ::ShowWindow(m_hwndSSGestLV, SW_HIDE);
+        }
+        // hide the multiple stroke gesture listview control
+        if (WS_VISIBLE ==
+                (((DWORD)::GetWindowLong(m_hwndMSGestLV, GWL_STYLE)) & WS_VISIBLE))
+        {
+            ::ShowWindow(m_hwndMSGestLV, SW_HIDE);
         }
     }
 
@@ -2067,44 +1355,6 @@ void CAdvRecoApp::UpdateLayout()
 
 /////////////////////////////////////////////////////////
 //
-// CAdvRecoApp::UpdateStatusBar
-//
-// This helper function outputs the names of the currently selected
-// recognizer and input scope to the application's status bar.
-//
-// Parameters:
-//      none
-//
-// Return Values (void):
-//      none
-//
-/////////////////////////////////////////////////////////
-void CAdvRecoApp::UpdateStatusBar()
-{
-    if (NULL == m_hwndStatusBar)
-        return;
-
-    UINT iInputScope = m_nCmdInputScope - ID_INPUTSCOPE_FIRST;
-    if (iInputScope >= sizeof(gc_pwsInputScopes)/sizeof(gc_pwsInputScopes[0]))
-    {
-        iInputScope = 0;
-    }
-
-    CComBSTR bstrStatus(m_bstrCurRecoName);
-    // If an input scope is set, add to the status bar string
-    if (m_nCmdInputScope != -1)
-    {
-        bstrStatus += L"; Input Scope: ";
-        bstrStatus += gc_pwsInputScopes[iInputScope];
-    }
-
-    // Set the new text int the status bar
-    ::SendMessage(m_hwndStatusBar, SB_SETTEXTW, NULL, (LPARAM)bstrStatus.m_str);
-}
-
-
-/////////////////////////////////////////////////////////
-//
 // CAdvRecoApp::GetGestureName
 //
 // This helper function returns the resource id of
@@ -2124,10 +1374,6 @@ bool CAdvRecoApp::GetGestureName(
         )
 {
     idGestureName = IDS_GESTURE_UNKNOWN;
-
-    // This function should not be called when the collection mode is ICM_InkOnly
-    if (ID_MODE_INK == m_nCmdMode)
-        return false;
 
     // First, try to find the gesture among the single stroke ones
     ULONG iCount = countof(gc_igtSingleStrokeGestures);

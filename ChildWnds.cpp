@@ -52,44 +52,8 @@ extern CComModule _Module;
 /////////////////////////////////////////////////////////
 CInkInputWnd::CInkInputWnd() : m_cRows(0), m_cColumns(0), m_iMidline(-1)
 {
-    m_ptGridLT.x = m_ptGridLT.y = 0;
     m_szWritingBox.cx = m_szWritingBox.cy = 0;
     ::SetRectEmpty(&m_rcDrawnBox);
-}
-
-/////////////////////////////////////////////////////////
-//
-// CInkInputWnd::SetGuide
-//
-// Data members access method for setting the guide
-// drawing parameters.
-//
-// Parameters:
-//     _InkRecoGuide& irg  : see the Tablet PC Automation API
-//                            reference for the description
-//                            of the structure
-//
-// Return Values (void):
-//      none
-//
-/////////////////////////////////////////////////////////
-void CInkInputWnd::SetGuide(const _InkRecoGuide& irg)
-{
-    // Initialize the data members with values from the recognition guide structure
-    m_ptGridLT.x = irg.rectWritingBox.left;
-    m_ptGridLT.y = irg.rectWritingBox.top;
-    m_szWritingBox.cx = irg.rectWritingBox.right - irg.rectWritingBox.left;
-    m_szWritingBox.cy = irg.rectWritingBox.bottom - irg.rectWritingBox.top;
-    m_rcDrawnBox = irg.rectDrawnBox;
-    m_iMidline = irg.midline;
-    m_cRows = irg.cRows;
-    m_cColumns = irg.cColumns;
-
-    // Update the window
-    if (IsWindow())
-    {
-        Invalidate();
-    }
 }
 
 /////////////////////////////////////////////////////////
@@ -154,67 +118,6 @@ LRESULT CInkInputWnd::OnPaint(UINT /*uMsg*/, WPARAM /*wParam*/,
 
     // Paint the background.
     ::FillRect(hdc, &rcClip, (HBRUSH)::GetStockObject(DC_BRUSH));
-
-    // Calculate the grid rectangle. Assume that if there are any guides,
-    // they are either boxes or horizontal lines.
-    RECT rcGrid = {m_ptGridLT.x, m_ptGridLT.y, 0,
-                   m_ptGridLT.y + m_szWritingBox.cy * m_cRows};
-    if (0 == m_cColumns && 0 != m_cRows)
-    {
-        rcGrid.right = rcClip.right;
-    }
-    else
-    {
-        rcGrid.right = m_ptGridLT.x + m_szWritingBox.cx * m_cColumns;
-    }
-
-    // Draw the guide grid, if it's visible and not empty.
-    RECT rcVisible;
-    if (FALSE == ::IsRectEmpty(&rcGrid)
-         && TRUE == ::IntersectRect(&rcVisible, &rcGrid, &rcClip))
-    {
-
-        // Create a thin lightgray pen to draw the guides.
-        HPEN hPen = ::CreatePen(PS_SOLID, 1, RGB(192, 192, 192));
-        HGDIOBJ hOldPen = ::SelectObject(hdc, hPen);
-
-        if (0 == m_cColumns)
-        {
-             // Draw horizontal lines at the bottom side of the guide's DrawnBox
-            int iY = rcClip.top - ((rcClip.top - m_ptGridLT.y) % m_szWritingBox.cy) + m_rcDrawnBox.bottom;
-            for (int iRow = (rcClip.top - m_ptGridLT.y) / m_szWritingBox.cy;
-                 (iRow < m_cRows) && (iY < rcClip.bottom);
-                 iRow++, iY += m_szWritingBox.cy)
-            {
-                ::MoveToEx(hdc, rcClip.left, iY, NULL);
-                ::LineTo(hdc, rcClip.right, iY);
-            }
-        }
-        else
-        {
-            // Draw boxes
-            int iY = rcClip.top - ((rcClip.top - m_ptGridLT.y) % m_szWritingBox.cy);
-            for (int iRow = (rcClip.top - m_ptGridLT.y) / m_szWritingBox.cy;
-                 (iRow < m_cRows) && (iY < rcClip.bottom);
-                 iRow++, iY += m_szWritingBox.cy)
-            {
-                int iX = rcClip.left - ((rcClip.left - m_ptGridLT.x) % m_szWritingBox.cx);
-                RECT rcBox = m_rcDrawnBox;
-                ::OffsetRect(&rcBox, iX, iY);
-                for (int iCol = (rcClip.left - m_ptGridLT.x) / m_szWritingBox.cx;
-                     (iCol < m_cColumns) && (rcBox.left < rcClip.right);
-                     iCol++)
-                {
-                    ::Rectangle(hdc, rcBox.left, rcBox.top, rcBox.right, rcBox.bottom);
-                    ::OffsetRect(&rcBox, m_szWritingBox.cx, 0);
-                }
-            }
-        }
-
-        // Restore the dc and delete the pen
-        ::SelectObject(hdc, hOldPen);
-        ::DeleteObject(hPen);
-    }
 
     EndPaint(&ps);
     return 0;
