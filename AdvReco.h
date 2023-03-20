@@ -32,13 +32,11 @@ public:
         mc_iInputWndId = 1, 
         mc_iOutputWndId = 2, 
         mc_iSSGestLVId = 4,
-        mc_iMSGestLVId = 5,
         // recognition guide box data
         // the width of the gesture list views 
         mc_cxGestLVWidth = 160, 
         // the number of the gesture names in the string table
         mc_cNumSSGestures = 36,     // single stroke gestures
-        mc_cNumMSGestures =  6,     // multi-stroke gestures
     };
 
     // Automation API interface pointers
@@ -49,20 +47,16 @@ public:
     CInkInputWnd    m_wndInput;
     CRecoOutputWnd  m_wndResults;
     HWND            m_hwndSSGestLV;     // single stroke gestures list view
-    HWND            m_hwndMSGestLV;     // multiple stroke gestures list view
 
     // Helper data members
-    UINT            m_nCmdMode;
     bool            m_bAllSSGestures;
-    bool            m_bAllMSGestures;
 
     // Static method that creates an object of the class
     static int Run(int nCmdShow);
 
     // Constructor
     CAdvRecoApp() :
-        m_hwndSSGestLV(NULL), m_hwndMSGestLV(NULL), m_nCmdMode(0),
-        m_bAllSSGestures(true), m_bAllMSGestures(true)
+        m_hwndSSGestLV(NULL), m_bAllSSGestures(true)
     {
     }
 
@@ -84,15 +78,10 @@ BEGIN_MSG_MAP(CAdvRecoApp)
     MESSAGE_HANDLER(WM_CREATE, OnCreate)
     MESSAGE_HANDLER(WM_DESTROY, OnDestroy)
     MESSAGE_HANDLER(WM_SIZE, OnSize)
-    COMMAND_ID_HANDLER(ID_MODE_INK, OnMode)
-    COMMAND_ID_HANDLER(ID_MODE_INK_AND_GESTURES, OnMode)
-    COMMAND_ID_HANDLER(ID_MODE_GESTURES, OnMode)
     COMMAND_ID_HANDLER(ID_CLEAR, OnClear)
     COMMAND_ID_HANDLER(ID_EXIT, OnExit)
     NOTIFY_HANDLER(mc_iSSGestLVId, LVN_COLUMNCLICK, OnLVColumnClick)
-    NOTIFY_HANDLER(mc_iMSGestLVId, LVN_COLUMNCLICK, OnLVColumnClick)
     NOTIFY_HANDLER(mc_iSSGestLVId, LVN_ITEMCHANGING, OnLVItemChanging)
-    NOTIFY_HANDLER(mc_iMSGestLVId, LVN_ITEMCHANGING, OnLVItemChanging)
 END_MSG_MAP()
 
 public:
@@ -105,7 +94,6 @@ public:
     LRESULT OnLVItemChanging(int idCtrl, LPNMHDR pnmh, BOOL& bHandled);
     
     // Command handlers
-    LRESULT OnMode(WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHandled);
     LRESULT OnClear(WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHandled);
     LRESULT OnExit(WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHandled);
 

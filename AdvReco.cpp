@@ -103,12 +103,6 @@ const InkApplicationGesture gc_igtSingleStrokeGestures[] = {
     IAG_LeftDown, IAG_RightUp, IAG_RightDown, IAG_Tap
 };
 
-// The set of the multiple stroke gestures known to this application
-const InkApplicationGesture gc_igtMultiStrokeGestures[] = {
-    IAG_ArrowUp, IAG_ArrowDown, IAG_ArrowLeft,
-    IAG_ArrowRight, IAG_Exclamation, IAG_DoubleTap
-};
-
 // The static members of the event sink templates are initialized here
 // (defined in EventSinks.h)
 
@@ -196,13 +190,6 @@ int CAdvRecoApp::Run(
 
     CAdvRecoApp theApp;
 
-    // Load and update the menu before creating the main window.
-    // Create menu items for the installed recognizers and for the
-    // supported input scopes.
-    HMENU hMenu = theApp.LoadMenu();
-    if (NULL == hMenu)
-        return 0;
-
     int iRet;
 
     // Load the icon from the resource and associate it with the window class
@@ -212,11 +199,8 @@ int CAdvRecoApp::Run(
 
     // Create the application's main window
     if (theApp.Create(NULL, CWindow::rcDefault, gc_szAppName,
-                      WS_OVERLAPPEDWINDOW, 0, (UINT)hMenu) != NULL)
+                      WS_OVERLAPPEDWINDOW, 0, (UINT)0) != NULL)
     {
-        // Set the collection mode to ICM_InkOnly
-        theApp.SendMessage(WM_COMMAND, ID_MODE_INK_AND_GESTURES);
-
         // Show and update the main window
         theApp.ShowWindow(nCmdShow);
         theApp.UpdateWindow();
@@ -234,7 +218,6 @@ int CAdvRecoApp::Run(
     {
         ::MessageBox(NULL, TEXT("Error creating the window"),
                      gc_szAppName, MB_ICONERROR | MB_OK);
-        ::DestroyMenu(hMenu);
         iRet = 0;
     }
 
@@ -299,6 +282,11 @@ LRESULT CAdvRecoApp::OnCreate(
     hr = m_spIInkCollector->put_hWnd((long)m_wndInput.m_hWnd);
     if (FAILED(hr))
         return -1;
+
+    hr = m_spIInkCollector->put_CollectionMode(ICM_InkAndGesture);
+    if (FAILED(hr))
+        return -1;
+
     hr = m_spIInkCollector->put_Enabled(VARIANT_TRUE);
     if (FAILED(hr))
         return -1;
@@ -462,13 +450,13 @@ HRESULT CAdvRecoApp::OnGesture(
     // If the current collection mode is ICM_GestureOnly or if we accept
     // the gesture, the gesture's strokes will be removed from the ink object,
     // So, the window needs to be updated in the strokes' area.
-    if (ID_MODE_GESTURES == m_nCmdMode || true == bAccepted)
+    if (true == bAccepted)
     {
         // Get the rectangle to update.
-        RECT rc;
-        m_wndInput.GetClientRect(&rc);
+        //RECT rc;
+        //m_wndInput.GetClientRect(&rc);
 
-        m_wndInput.InvalidateRect(&rc);
+        //m_wndInput.InvalidateRect(&rc);
     }
     else // if something's failed,
          // or the gesture is either unknown or unchecked in the list
@@ -477,6 +465,7 @@ HRESULT CAdvRecoApp::OnGesture(
         // for the strokes, so they'll be handled in the OnStroke method.
         *pbCancel = VARIANT_TRUE;
         idGestureName = IDS_GESTURE_UNKNOWN;
+        SendMessage(WM_COMMAND, ID_CLEAR);
     }
 
     // Update the results window as well
@@ -487,80 +476,6 @@ HRESULT CAdvRecoApp::OnGesture(
 }
 
 // Command handlers /////////////////////////////////////
-
-/////////////////////////////////////////////////////////
-//
-// CAdvRecoApp::OnMode
-//
-// This command handler is called when user selects
-// a different collection mode from the "Mode" submenu.
-// NOTE: Changing collection mode has no effect on
-//       the recognition results of the existing strokes.
-//
-// Parameters:
-//      defined in the ATL's macro COMMAND_RANGE_HANDLER
-//      Only wID - the id of the command associated
-//      with the clicked menu item - is used here.
-//
-// Return Values (LRESULT):
-//      always 0
-//
-/////////////////////////////////////////////////////////
-LRESULT CAdvRecoApp::OnMode(
-        WORD /*wNotifyCode*/,
-        WORD wID,
-        HWND /*hWndCtl*/,
-        BOOL& /*bHandled*/
-        )
-{
-    // Do nothing, id user selected the same mode.
-    if (wID == m_nCmdMode)
-        return 0;
-
-    InkCollectionMode icm;
-    switch (wID)
-    {
-        default:
-            return 0;
-        case ID_MODE_INK_AND_GESTURES:
-            icm = ICM_InkAndGesture;
-            break;
-        case ID_MODE_GESTURES:
-            icm = ICM_GestureOnly;
-            break;
-    }
-
-    // Disable input to switch the collection mode
-    if (m_spIInkCollector != NULL
-        && SUCCEEDED(m_spIInkCollector->put_Enabled(VARIANT_FALSE)))
-    {
-        // Set the new mode
-        if (SUCCEEDED(m_spIInkCollector->put_CollectionMode(icm)))
-        {
-
-            // Update the menu
-            m_nCmdMode = wID;  // store the selected mode's associated command id
-
-            // Show or hide the gesture list views
-            UpdateLayout();
-        }
-        else
-        {
-            TCHAR* pszErrorMsg;
-            pszErrorMsg = TEXT("Unable to change the CollectionMode property ")
-                            TEXT("on the InkCollector.");
-            MessageBox(pszErrorMsg, gc_szAppName, MB_ICONERROR | MB_OK);
-        }
-        // Enable input
-        if (FAILED(m_spIInkCollector->put_Enabled(VARIANT_TRUE)))
-        {
-            MessageBox(TEXT("Error enabling InkCollector after changing collection mode!"),
-                       gc_szAppName, MB_ICONERROR | MB_OK);
-        }
-    }
-
-    return 0;
-}
 
 /////////////////////////////////////////////////////////
 //
@@ -680,11 +595,6 @@ LRESULT CAdvRecoApp::OnLVColumnClick(
         m_bAllSSGestures = !m_bAllSSGestures;
         ListView_SetCheckState(m_hwndSSGestLV, -1, m_bAllSSGestures);
     }
-    else if (mc_iMSGestLVId == idCtrl)
-    {
-        m_bAllMSGestures = !m_bAllMSGestures;
-        ListView_SetCheckState(m_hwndMSGestLV, -1, m_bAllMSGestures);
-    }
     else
     {
         bHandled = FALSE;
@@ -734,11 +644,6 @@ LRESULT CAdvRecoApp::OnLVItemChanging(
         {
             if (pnmv->iItem >= 0 && pnmv->iItem < countof(gc_igtSingleStrokeGestures))
                 igtGesture = gc_igtSingleStrokeGestures[pnmv->iItem];
-        }
-        else if (mc_iMSGestLVId == idCtrl)
-        {
-            if (pnmv->iItem >= 0 && pnmv->iItem < countof(gc_igtMultiStrokeGestures))
-                igtGesture = gc_igtMultiStrokeGestures[pnmv->iItem];
         }
 
         if (IAG_NoGesture != igtGesture && SUCCEEDED(
@@ -826,34 +731,6 @@ bool CAdvRecoApp::CreateChildWindows()
             return false;
     }
 
-
-    // Create a listview control for the list of the multi-stroke gestures
-    m_hwndMSGestLV = ::CreateWindowEx(WS_EX_CLIENTEDGE, WC_LISTVIEW, NULL,
-                                      WS_VISIBLE | WS_CHILD | WS_BORDER | LVS_REPORT,
-                                      0, 0, 1, 1,
-                                      m_hWnd, (HMENU)mc_iMSGestLVId,
-                                      _Module.GetModuleInstance(), NULL);
-    if (NULL == m_hwndMSGestLV)
-        return false;
-    //
-    ListView_SetExtendedListViewStyleEx(m_hwndMSGestLV, LVS_EX_CHECKBOXES, LVS_EX_CHECKBOXES);
-
-    // Create a column
-    lvC.pszText = TEXT("Multiple Stroke Gestures");
-    ListView_InsertColumn(m_hwndMSGestLV, lvC.iSubItem, &lvC);
-
-    // Insert items - the names of the single stroke gestures.
-    for (ULONG i = 0; i < mc_cNumMSGestures; i++)
-    {
-        lvItem.iItem = i;
-        // Load the names from the application resource, there should be
-        // mc_cNumMSGestures names there with sequential id's starting
-        // with IDS_MSGESTURE_FIRST
-        ::LoadString(hInst, IDS_MSGESTURE_FIRST + i, szText, countof(szText));
-        if (-1 == ListView_InsertItem(m_hwndMSGestLV, &lvItem))
-            return false;
-    }
-
     // Update the child windows' positions and sizes so that they cover
     // entire client area of the main window.
     UpdateLayout();
@@ -883,7 +760,7 @@ void CAdvRecoApp::UpdateLayout()
     GetClientRect(&rect);
 
     // update the size and position of the gesture listviews
-    if (::IsWindow(m_hwndSSGestLV) && ::IsWindow(m_hwndMSGestLV))
+    if (::IsWindow(m_hwndSSGestLV))
     {
         // calculate the rectangle covered by the list views
         RECT rcGest = rect;
@@ -898,54 +775,11 @@ void CAdvRecoApp::UpdateLayout()
 
         rect.right = rcGest.left;
 
-        if (ID_MODE_GESTURES == m_nCmdMode)
-        {
-            int iHeight;
-            RECT rcItem;
-            if (TRUE == ListView_GetItemRect(m_hwndMSGestLV, 0, &rcItem, LVIR_BOUNDS))
-            {
-                iHeight = rcItem.top + (rcItem.bottom - rcItem.top)
-                                        * (countof(gc_igtMultiStrokeGestures) + 1);
-            }
-            else
-            {
-                iHeight = (rcGest.bottom - rcGest.top) / 3;
-            }
-
-            // show the multiple stroke gesture listview control
-            ::SetWindowPos(m_hwndMSGestLV, NULL,
-                            rcGest.left, rcGest.bottom - iHeight,
-                            rcGest.right - rcGest.left, iHeight,
-                            SWP_NOZORDER | SWP_NOACTIVATE | SWP_SHOWWINDOW);
-            rcGest.bottom -= iHeight;
-        }
-        else if (WS_VISIBLE ==
-                (((DWORD)::GetWindowLong(m_hwndMSGestLV, GWL_STYLE)) & WS_VISIBLE))
-        {
-            // hide the multiple stroke gesture listview control
-            ::ShowWindow(m_hwndMSGestLV, SW_HIDE);
-        }
-
         // show the single stroke gesture listview control
         ::SetWindowPos(m_hwndSSGestLV, NULL,
                         rcGest.left, rcGest.top,
                         rcGest.right - rcGest.left, rcGest.bottom - rcGest.top,
                         SWP_NOZORDER | SWP_NOACTIVATE | SWP_SHOWWINDOW);
-    }
-    else
-    {
-        // hide the single stroke gesture listview control
-        if (WS_VISIBLE ==
-                (((DWORD)::GetWindowLong(m_hwndSSGestLV, GWL_STYLE)) & WS_VISIBLE))
-        {
-            ::ShowWindow(m_hwndSSGestLV, SW_HIDE);
-        }
-        // hide the multiple stroke gesture listview control
-        if (WS_VISIBLE ==
-                (((DWORD)::GetWindowLong(m_hwndMSGestLV, GWL_STYLE)) & WS_VISIBLE))
-        {
-            ::ShowWindow(m_hwndMSGestLV, SW_HIDE);
-        }
     }
 
     // update the size and position of the output window
@@ -1007,21 +841,6 @@ bool CAdvRecoApp::GetGestureName(
         }
     }
 
-    // If this is not a known single stroke gesture and the current collection mode
-    // is ICM_GestureOnly, this may be a multi-stroke one.
-    if (i == iCount && ID_MODE_GESTURES == m_nCmdMode)
-    {
-        iCount = countof(gc_igtMultiStrokeGestures);
-        for (i = 0; i < iCount; i++)
-        {
-            if (gc_igtMultiStrokeGestures[i] == igtGesture)
-            {
-                idGestureName = IDS_MSGESTURE_FIRST + i;
-                break;
-            }
-        }
-    }
-
     return (IDS_GESTURE_UNKNOWN != idGestureName);
 }
 
@@ -1041,21 +860,9 @@ bool CAdvRecoApp::GetGestureName(
 /////////////////////////////////////////////////////////
 void CAdvRecoApp::PresetGestures()
 {
-    // This function should not be called before the listview controls have been created
-    if (0 == ::IsWindow(m_hwndSSGestLV) || 0 == ::IsWindow(m_hwndMSGestLV))
+    if (0 == ::IsWindow(m_hwndSSGestLV))
         return;
-
-    // Set the status of the single stroke gestures
-    ULONG iNumGestures = countof(gc_igtSingleStrokeGestures);
-    for (ULONG i = 0; i < iNumGestures; i++)
-    {
+    for (ULONG i = 0; i < countof(gc_igtSingleStrokeGestures); i++) {
         ListView_SetCheckState(m_hwndSSGestLV, i, TRUE);
-    }
-
-    // Set the status of the multiple stroke gestures
-    iNumGestures = countof(gc_igtMultiStrokeGestures);
-    for (ULONG i = 0; i < iNumGestures; i++)
-    {
-        ListView_SetCheckState(m_hwndMSGestLV, i, TRUE);
     }
 }
