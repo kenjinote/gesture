@@ -61,7 +61,6 @@ public:
     }
 
     // Helper methods
-    HMENU   LoadMenu();
     bool    CreateChildWindows();
     void    UpdateLayout();
     bool    GetGestureName(InkApplicationGesture idGesture, UINT& idGestureName);

@@ -86,11 +86,6 @@ CComModule _Module;
 #include "ChildWnds.h"      // definitions of the CInkInputWnd and CRecoOutputWnd
 #include "AdvReco.h"        // contains the definition of CAddRecoApp
 
-// Specifies the maximum allowed length of menu items in the
-// input scope menu.  Any items that exceed this value will
-// be truncated.
-const LONG gc_lMaxInputScopeMenuItemLength = 40;
-
 // The set of the single stroke gestures known to this application
 const InkApplicationGesture gc_igtSingleStrokeGestures[] = {
     IAG_Scratchout, IAG_Triangle, IAG_Square, IAG_Star, IAG_Check,
@@ -360,27 +355,7 @@ LRESULT CAdvRecoApp::OnSize(
     return 0;
 }
 
-
 // InkCollector event handlers ///////////////////////////
-
-/////////////////////////////////////////////////////////
-//
-// CAdvRecoApp::OnStroke
-//
-// The _IInkCollectorEvents's Stroke event handler.
-// See the Tablet PC Automation API Reference for the
-// detailed description of the event and its parameters.
-//
-// Parameters:
-//      IInkCursor* pIInkCursor     : [in] not used here
-//      IInkStrokeDisp* pInkStroke  : [in]
-//      VARIANT_BOOL* pbCancel      : [in,out] option to cancel the gesture,
-//                                    default value is FALSE, not modified here
-//
-// Return Values (HRESULT):
-//      S_OK if succeeded, E_FAIL or E_INVALIDARG otherwise
-//
-/////////////////////////////////////////////////////////
 
 /////////////////////////////////////////////////////////
 //
@@ -404,7 +379,7 @@ LRESULT CAdvRecoApp::OnSize(
 /////////////////////////////////////////////////////////
 HRESULT CAdvRecoApp::OnGesture(
         IInkCursor* /*pIInkCursor*/,
-        IInkStrokes* pInkStrokes,
+        IInkStrokes* /*pInkStrokes*/,
         VARIANT vGestures,
         VARIANT_BOOL* pbCancel
         )
@@ -464,9 +439,10 @@ HRESULT CAdvRecoApp::OnGesture(
         // Reject the gesture. The InkCollector will fire Stroke event(s)
         // for the strokes, so they'll be handled in the OnStroke method.
         *pbCancel = VARIANT_TRUE;
-        idGestureName = IDS_GESTURE_UNKNOWN;
-        SendMessage(WM_COMMAND, ID_CLEAR);
+        idGestureName = IDS_GESTURE_UNKNOWN;        
     }
+
+    SendMessage(WM_COMMAND, ID_CLEAR);
 
     // Update the results window as well
     m_wndResults.SetGestureName(idGestureName);
@@ -543,29 +519,6 @@ LRESULT CAdvRecoApp::OnExit(
 }
 
 // Helper methods //////////////////////////////
-
-/////////////////////////////////////////////////////////
-//
-// CAdvRecoApp::LoadMenu
-//
-// This method instantiates an enumerator object for the installed
-// recognizers, loads the main menu resource and creates a menu item
-// for each recognizer from the collection.
-// Also, it fills the Input Scope menu with the items for the supported
-// Input Scopes.
-//
-// Parameters:
-//      none
-//
-// Return Values (HMENU):
-//      The return value is a handle of the menu
-//      that'll be used for the main window
-//
-/////////////////////////////////////////////////////////
-HMENU CAdvRecoApp::LoadMenu()
-{
-    return ::LoadMenu(_Module.GetResourceInstance(), MAKEINTRESOURCE(IDR_MENU));
-}
 
 /////////////////////////////////////////////////////////
 //
