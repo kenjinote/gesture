@@ -84,7 +84,7 @@ CComModule _Module;
 #include "resource.h"       // main symbols, including command ID's
 #include "EventSinks.h"     // defines the IInkEventsImpl and IInkRecognitionEventsImpl
 #include "ChildWnds.h"      // definitions of the CInkInputWnd and CRecoOutputWnd
-#include "AdvReco.h"        // contains the definition of CAddRecoApp
+#include "gesture.h"        // contains the definition of CAddRecoApp
 
 // The set of the single stroke gestures known to this application
 const InkApplicationGesture gc_igtSingleStrokeGestures[] = {
